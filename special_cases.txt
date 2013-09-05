@@ -1,0 +1,16 @@
+Special Cases which are currently not handled:
+
+data_upload.file_handling split_sequence_line():
+  only forward alignments are processed (->MAF file '+'), reverse-complement sequences (->MAF file '-') are ignored
+
+
+data_upload.file_handling sequence_length_mismatch():
+  two sequences are aligned but at least one of them is having a gap, deletion, etc. so it's not an exact match
+
+
+data_upload.file_handling alignment_handling():
+  '-' is not included in the alignment length in the MAF file; if '-' exists in the sequence we have a wrong alignment length
+
+
+data_upload.file_handling assembly_handling():
+  'N' exists in the assembly file: how should it be processed
