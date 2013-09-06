@@ -18,6 +18,7 @@ def position_details_strain (position, strain_name, second_sequence_name, pan_se
         if block.offset == None:
             print "Position on pan: -1" 
         else:
+            print "Offset: %s" % block.offset
             print "Position on pan: %s" % (position - block.offset)
     else:
         print "Not found."
@@ -33,6 +34,7 @@ def position_details_pan (position, strain_name, second_sequence_name, pan_seque
         if block.offset == None:
             print "Position on strain: -1" 
         else:
+            print "Offset: %s" % block.offset
             print "Position on strain: %s" % (position - block.offset)
     else:
         print "Not found."

@@ -17,13 +17,13 @@ class Block:
         return self.__start
 
     @property
-    def total_length(end):
+    def end(end):
         return self.__end
 
     @property
-    def total_length(length):
-        return self.__lengtht
+    def length(length):
+        return self.__length
 
     @property
-    def total_length(offset):
+    def offset(offset):
         return self.__offset

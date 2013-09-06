@@ -4,8 +4,17 @@ Created on Aug 28, 2013
 @author: fleitner
 '''
 
-from sql.interaction_mappingposition import insert_position, delete_position, position_start_block, position_end_block
+from sql.interaction_mappingposition import insert_position, delete_position, position_start_block, position_end_block, position_exist, build_block
 from data_handling.sequence import Sequence
+import difflib
+
+
+#find the longest common substring of two sequences
+def longest_common_substring(a, b):
+    match = difflib.SequenceMatcher(None, a, b)
+    a_start, b_start, length = match.find_longest_match(0, len(a), 0, len(b))
+    return a_start, b_start, length
+
 
 #read alignment file (maf file format) and process data
 def alignment_handling(line, pan_sequence, second_sequence, new_sequence, debug = False):
@@ -23,19 +32,35 @@ def alignment_handling(line, pan_sequence, second_sequence, new_sequence, debug 
                 insert_sequence_pos(pan_sequence, second_sequence)         
             #TO-DO: two sequences are aligned but at least one of them is having a deletion, gap, compliment reverse,...; see special_cases.txt
             else:
-                sequence_mismatch()
-            #check if beginning of sequence is mapped -> map position 0 to -1
+                #sequence_mismatch()
+                #if data does not align perfectly find the longest common substring between two sequences so data is generated
+                start_pan_lcs, start_second_lcs, length_lcs = longest_common_substring(pan_sequence.sequence, second_sequence.sequence)
+                pan_sequence.start = int(pan_sequence.start) + start_pan_lcs
+                pan_sequence.length = length_lcs
+                second_sequence.start = int(second_sequence.start) + start_second_lcs
+                second_sequence.length = length_lcs
+                pan_sequence.end = pan_sequence.start + length_lcs
+                second_sequence.end = second_sequence.start + length_lcs
+                insert_sequence_pos(pan_sequence, second_sequence) 
+            #check if beginning of pan sequence is mapped -> map position 0 to -1
             check_mapping_sequence_start(pan_sequence, second_sequence)
-            #TO-DO: check if end of sequence is mapped -> map position x to -3 and remove last position which is mapped to -1
-            #check_mapping_sequence_end(pan_sequence, second_sequence)
+            #check if end of pan sequence is mapped -> map end position to -1 and remove last position which is mapped to -1
+            check_mapping_sequence_end(pan_sequence, second_sequence)
             new_sequence = True
     return new_sequence, pan_sequence, second_sequence
 
+#check if the end of a sequence is mapped
+def check_mapping_sequence_end(pan_sequence, second_sequence):
+    last_position = int(pan_sequence.total_length) + 1
+    block_position_end = position_end_block(last_position, None, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
+    if block_position_end == None:
+        insert_position(last_position, '-1', second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)    
+
 #check if the start of a sequence is mapped
 def check_mapping_sequence_start(pan_sequence, second_sequence):
-    block_position_start = position_start_block(0, None, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
+    block_position_start = position_exist(0, None, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
     if block_position_start == None:
-        insert_position(0, '-1', second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)    
+        insert_position('0', '-1', second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)    
 
 #get alignment block data from maf file
 def split_sequence_line(line, sequence):
@@ -53,19 +78,29 @@ def split_sequence_line(line, sequence):
 
 #check if mapping already exist and insert into db
 def insert_sequence_pos(pan_sequence, second_sequence):
-    #check if blocks exist with the given position in pan genome (also in strain?)
-    block_position_start = position_start_block(pan_sequence.start, None, second_sequence.strain_name, pan_sequence.sequence_name, second_sequence.sequence_name) 
-    block_position_end = position_end_block(pan_sequence.start, None, second_sequence.strain_name, pan_sequence.sequence_name, second_sequence.sequence_name)
 
-    insert_position(pan_sequence.start, second_sequence.start, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
+    #check if blocks exist with the given position in pan genome, strain
+    #get block from strain position
+    block_strain = build_block(None, second_sequence.start, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
+    #get block from pan position
+    block_pan = build_block(pan_sequence.start, None, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
 
-    print "SAVE"
-    #check_start_block_surrounding(pan_sequence, second_sequence)
-    check_end_block_surrounding(pan_sequence, second_sequence)
+    if (block_strain == None) and (block_pan == None):
+        insert_position(pan_sequence.start, second_sequence.start, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
+        #map end from pan -> strain
+        check_end_block_surrounding(pan_sequence, second_sequence)
+        #map end from strain -> pan        
+        check_end_block_surrounding_strain(pan_sequence, second_sequence)
+    elif (block_pan.length == 0) and (block_strain.length == 0):
+            insert_position(pan_sequence.start, second_sequence.start, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
+            #map end from pan -> strain
+            check_end_block_surrounding(pan_sequence, second_sequence)
+            #map end from strain -> pan        
+            check_end_block_surrounding_strain(pan_sequence, second_sequence)
 
 #check if starting block connects to an ending block. if not insert '-1 positions' 
 def check_start_block_surrounding(pan_sequence, second_sequence):
-    start = eval(pan_sequence.start) - 1
+    start = int(pan_sequence.start) - 1
     if start > 0:
         start_block = position_start_block(start, None, second_sequence.strain_name, pan_sequence.sequence_name, second_sequence.sequence_name)
         if start_block == None:
@@ -74,20 +109,36 @@ def check_start_block_surrounding(pan_sequence, second_sequence):
 #check if ending block connects to an starting block. if not insert '-1 positions' 
 def check_end_block_surrounding(pan_sequence, second_sequence):
     start = pan_sequence.end + 1
-    total_length = eval(pan_sequence.total_length)
+    total_length = int(pan_sequence.total_length)
     if start < total_length:
         start_block = position_end_block(start, -1, second_sequence.strain_name, pan_sequence.sequence_name, second_sequence.sequence_name)
         if start_block == None:
             insert_position(start, '-1', second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
+    #the end of the sequence is reached
     elif start > total_length:
         start_block = position_end_block(start, -1, second_sequence.strain_name, pan_sequence.sequence_name, second_sequence.sequence_name)
         if start_block == None:
-            #'-3' marks the end of a sequence
-            insert_position(start, '-3', second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
+            #'-1' should we mark the end of a sequence differently?
+            insert_position(start, '-1', second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
+
+#check if ending block connects to an starting block. if not insert '-1 positions' 
+def check_end_block_surrounding_strain(pan_sequence, second_sequence):
+    start = second_sequence.end + 1
+    total_length = int(second_sequence.total_length)
+    if start < total_length:
+        start_block = position_end_block('-1', start, second_sequence.strain_name, pan_sequence.sequence_name, second_sequence.sequence_name)
+        if start_block == None:
+            insert_position('-1', start, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
+    #the end of the sequence is reached
+    elif start > total_length:
+        start_block = position_end_block('-1', start, second_sequence.strain_name, pan_sequence.sequence_name, second_sequence.sequence_name)
+        if start_block == None:
+            #'-1' should we mark the end of a sequence differently?
+            insert_position('-1', start, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
 
 #length mismatch from maf file but two sequences are still aligned
-def sequence_mismatch():
-    print "MISMATCH"
+#def sequence_mismatch():
+#    print "MISMATCH"
 
 #remove whitespace from a given string
 def remove_whitespace(pieces):

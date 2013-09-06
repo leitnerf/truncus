@@ -7,6 +7,18 @@ Created on Aug 28, 2013
 from data_handling.import_interaction import alignment_handling 
 from data_handling.sequence import Sequence
 
+def data_import(file_name, pan_genome_name, strain_name):
+
+    #read alignment_file
+    f = open_file(file_name)
+    if f == None:
+        print "File %s can't be opened." % file_name_alignment
+    else:
+        pan_sequence = Sequence(pan_genome_name)
+        second_sequence = Sequence(strain_name)
+        read_file(f, 'alignment', pan_sequence, second_sequence, False)
+        close_file(f)
+
 def open_file(file_name):
     try:
         f = open(file_name)

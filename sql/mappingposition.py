@@ -13,9 +13,9 @@ class MappingPosition(Base):
     
     start_pan = Column('start_pan', Integer, primary_key=True)
     start_strain = Column('start_strain', Integer, primary_key=True)
-    name_strain = Column('name_strain', String)
-    name_sequence = Column('name_sequence', String)
-    name_sequence_pan = Column('name_sequence_pan', String)
+    name_strain = Column('name_strain', String, primary_key=True)
+    name_sequence = Column('name_sequence', String, primary_key=True)
+    name_sequence_pan = Column('name_sequence_pan', String, primary_key=True)
     
     def __init__(self, start_pan, start_strain, name_strain, name_sequence, name_sequence_pan):
         self.start_pan = start_pan

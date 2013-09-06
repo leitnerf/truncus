@@ -49,3 +49,15 @@ class Sequence:
     @property
     def total_length(self):
         return self.__total_length
+
+    @start.setter
+    def start(self, value):
+        self._start = value
+
+    @length.setter
+    def length(self, value):
+        self._length = value
+
+    @end.setter
+    def length(self, value):
+        self._end = value
