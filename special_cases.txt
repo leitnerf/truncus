@@ -14,3 +14,6 @@ data_upload.file_handling alignment_handling():
 
 data_upload.file_handling assembly_handling():
   'N' exists in the assembly file: how should it be processed
+
+data_upload.import_interation
+  '-' is included in finding the longest common substring
