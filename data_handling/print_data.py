@@ -57,3 +57,26 @@ def all_positions():
         print "pangenome: %s, strain: %s, name-strain: %s, name-sequence: %s, name-sequence-pan: %s" % (mapping.start_pan, mapping.start_strain, mapping.name_strain, mapping.name_sequence, mapping.name_sequence_pan)
     print "Total rows: %i" % row_count
     print "==========================="
+
+def check_sequence_pan_strain (position, strain_name, second_sequence_name, pan_sequence_name):
+    block_pan = build_block(position, None,  strain_name, second_sequence_name, pan_sequence_name)
+    if block_pan != None:
+        if block_pan.offset != None:
+            #position_details_pan (position, strain_name, second_sequence_name, pan_sequence_name)
+            block_strain =  build_block(None, (position - block_pan.offset),  strain_name, second_sequence_name, pan_sequence_name)
+
+            sequence_pan = get_sequence(block_pan.sequence_id)
+            sequence_char_pan = sequence_pan.sequence_string[position - block_pan.start]
+
+            sequence_strain = get_sequence(block_strain.sequence_id)
+            sequence_char_strain = sequence_strain.sequence_string[(position - block_pan.offset) - block_strain.start]
+
+            if sequence_char_pan == sequence_char_strain:
+                print "MATCH: %s, %s, %s, %s" % (position, strain_name, second_sequence_name, pan_sequence_name)
+                #print "===================================================="
+                return True
+            else:
+                print "MISMATCH: %s, %s, %s, %s" % (position, strain_name, second_sequence_name, pan_sequence_name)
+                #print "====================================================" 
+                return True
+    return False

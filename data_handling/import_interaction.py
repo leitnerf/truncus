@@ -4,7 +4,7 @@ Created on Aug 28, 2013
 @author: fleitner
 '''
 
-from sql.interaction_mappingposition import insert_position, delete_position, position_start_block, position_end_block, position_exist, build_block
+from sql.interaction_mappingposition import insert_position, delete_position, position_start_block, position_end_block, position_exist, build_block, encase_block
 from sql.interaction_sequence import insert_sequence
 from sql.genomesequence import GenomeSequence
 from data_handling.sequence import Sequence
@@ -12,10 +12,26 @@ import difflib
 
 
 #find the longest common substring of two sequences
-def longest_common_substring(a, b):
-    match = difflib.SequenceMatcher(None, a, b)
-    a_start, b_start, length = match.find_longest_match(0, len(a), 0, len(b))
-    return a_start, b_start, length
+def longest_common_substring(s1, s2):
+    #can not be used in Python 2.6. to find lcs - see SequenceMatcher Automatic junk heuristic
+    #match = difflib.SequenceMatcher(None, a, b)
+    #a_start, b_start, length = match.find_longest_match(0, len(a), 0, len(b))
+
+    #http://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Longest_common_substring
+    #very slow
+    m = [[0] * (1 + len(s2)) for i in xrange(1 + len(s1))]
+    longest, x_longest, y_longest = 0, 0, 0
+    for x in xrange(1, 1 + len(s1)):
+        for y in xrange(1, 1 + len(s2)):
+          if s1[x - 1] == s2[y - 1]:
+              m[x][y] = m[x - 1][y - 1] + 1
+              if m[x][y] > longest:
+                  longest = m[x][y]
+                  x_longest = x
+                  y_longest = y
+          else:
+              m[x][y] = 0
+    return (x_longest - longest), (y_longest - longest), longest
 
 
 #read alignment file (maf file format) and process data
@@ -89,14 +105,19 @@ def insert_sequence_pos(pan_sequence, second_sequence):
     #get block from pan position
     block_pan = build_block(pan_sequence.start, None, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
 
-    if (block_strain == None) and (block_pan == None):
+    block_encase_pan = encase_block(pan_sequence.start, None, pan_sequence.end, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
+    block_encase_strain = encase_block(None, second_sequence.start, second_sequence.end, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
+
+    if (block_encase_pan != None) or (block_encase_strain != None):
+        print "encase %s, %s, %s, %s, %s" % (pan_sequence.start, second_sequence.start, second_sequence.length, pan_sequence.length, pan_sequence.sequence_string)
+    elif (block_strain == None) and (block_pan == None):
         sequence_id = insert_sequence(pan_sequence, second_sequence)
         insert_position(pan_sequence.start, second_sequence.start, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name, sequence_id)
         #map end from pan -> strain
         check_end_block_surrounding(pan_sequence, second_sequence)
         #map end from strain -> pan        
         check_end_block_surrounding_strain(pan_sequence, second_sequence)
-    elif (block_pan.length == 0) and (block_strain.length == 0):
+    elif (block_strain.length == 0) and (block_pan.length == 0):
         sequence_id = insert_sequence(pan_sequence, second_sequence)
         insert_position(pan_sequence.start, second_sequence.start, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name, sequence_id)
         #map end from pan -> strain
@@ -117,12 +138,12 @@ def check_end_block_surrounding(pan_sequence, second_sequence):
     start = pan_sequence.end + 1
     total_length = int(pan_sequence.total_length)
     if start < total_length:
-        start_block = position_end_block(start, -1, second_sequence.strain_name, pan_sequence.sequence_name, second_sequence.sequence_name)
+        start_block = position_end_block(start, None, second_sequence.strain_name, pan_sequence.sequence_name, second_sequence.sequence_name)
         if start_block == None:
             insert_position(start, '-1', second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
     #the end of the sequence is reached
     elif start > total_length:
-        start_block = position_end_block(start, -1, second_sequence.strain_name, pan_sequence.sequence_name, second_sequence.sequence_name)
+        start_block = position_end_block(start, None, second_sequence.strain_name, pan_sequence.sequence_name, second_sequence.sequence_name)
         if start_block == None:
             #'-1' should we mark the end of a sequence differently?
             insert_position(start, '-1', second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
@@ -132,12 +153,12 @@ def check_end_block_surrounding_strain(pan_sequence, second_sequence):
     start = second_sequence.end + 1
     total_length = int(second_sequence.total_length)
     if start < total_length:
-        start_block = position_end_block('-1', start, second_sequence.strain_name, pan_sequence.sequence_name, second_sequence.sequence_name)
+        start_block = position_end_block(None, start, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
         if start_block == None:
             insert_position('-1', start, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
     #the end of the sequence is reached
-    elif start > total_length:
-        start_block = position_end_block('-1', start, second_sequence.strain_name, pan_sequence.sequence_name, second_sequence.sequence_name)
+    elif start >= total_length:
+        start_block = position_end_block(None, start, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)
         if start_block == None:
             #'-1' should we mark the end of a sequence differently?
             insert_position('-1', start, second_sequence.strain_name, second_sequence.sequence_name, pan_sequence.sequence_name)

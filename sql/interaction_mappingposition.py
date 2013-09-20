@@ -55,6 +55,19 @@ def position_exist(start_pan, start_strain, name_strain, name_sequence, name_seq
     result = query.first()
     return result
 
+#check if given block would encase a smaller block, since given blog would be bigger
+def encase_block(start_pan, start_strain, end, name_strain, second_sequence_name, name_sequence_pan, debug = False):
+    if (start_pan == None) and (start_strain != None):
+        query = session.query(MappingPosition).filter(MappingPosition.start_strain > start_strain).filter(MappingPosition.start_strain < end).filter(MappingPosition.name_strain == name_strain).filter(MappingPosition.name_sequence == second_sequence_name).filter(MappingPosition.name_sequence_pan == name_sequence_pan).filter(MappingPosition.start_pan != '-1')
+    elif (start_pan != None) and (start_strain == None):    
+        query = session.query(MappingPosition).filter(MappingPosition.start_pan > start_pan).filter(MappingPosition.start_pan < end).filter(MappingPosition.name_strain == name_strain).filter(MappingPosition.name_sequence == second_sequence_name).filter(MappingPosition.name_sequence_pan == name_sequence_pan).filter(MappingPosition.start_strain != '-1')
+    else:
+        return None
+    if debug:
+        print query
+    result = query.first()
+    return result
+
 #build a complete block for a given position
 def build_block(start_pan, start_strain, strain_name, second_sequence_name, pan_sequence_name, debug = False):
     block_position_start = position_start_block(start_pan, start_strain, strain_name, second_sequence_name, pan_sequence_name)
@@ -66,14 +79,14 @@ def build_block(start_pan, start_strain, strain_name, second_sequence_name, pan_
         return None
     elif(block_position_start == None) and (block_position_end != None):
         if (start_pan == None) and (start_strain != None):
-            return Block(start_strain, -1, 0, None)
+            return Block(start_strain, -3, 0, None)
         elif (start_pan != None) and (start_strain == None):
-            return Block(start_strain, -1, 0, None)
+            return Block(start_strain, -4, 0, None)
     elif(block_position_start != None) and (block_position_end == None):
         if (start_pan == None) and (start_strain != None):
-            return Block(start_pan, -1, 0, None)
+            return Block(start_pan, -5, 0, None)
         elif (start_pan != None) and (start_strain == None):
-            return Block(start_pan, -1, 0, None)
+            return Block(start_pan, -6, 0, None)
 
     if exact_position != None:
         sequence_id = exact_position.sequence_id
